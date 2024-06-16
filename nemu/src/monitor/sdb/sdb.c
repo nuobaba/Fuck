@@ -18,6 +18,9 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include "sdb.h"
+#include <memory/paddr.h>
+#include "common.h"
+// #include "vaddr.h"
 
 static int is_batch_mode = false;
 
@@ -54,14 +57,71 @@ static int cmd_q(char *args) {
 
 static int cmd_help(char *args);
 
+static int cmd_si(char *args)
+{
+  int N=1;
+  sscanf(args,"%d",&N);
+  for(int i = 0;i < N; i++)
+  {  
+    cpu_exec(1);
+  }
+
+  return 0;
+}
+
+static int cmd_info(char *args)
+{
+  // char *tmp = strtok(args, " ");
+
+  // printf("tmp: %s\n",tmp);
+
+  char *wr_sel;
+
+  wr_sel = (char*)malloc(sizeof(char));
+
+  sscanf(args,"%s",wr_sel);
+  
+  if(strcmp(wr_sel,"r")==0)
+  {
+    isa_reg_display();
+  }
+  else if(strcmp(wr_sel,"w") == 0)
+  {
+    printf("Do nothing.");
+    TODO(); 
+  }
+  
+  return 0;
+}
+
+static int cmd_x(char *args)
+{
+  int N_cnt;
+  vaddr_t Address;
+
+  sscanf(args,"%d %x",&N_cnt,&Address);
+
+  for(int i = 0; i< N_cnt; i++)
+  {
+    word_t mem_data = paddr_read(Address+i,N_cnt);
+    printf("0x%08x: 0x%02x\n", Address + i, mem_data & 0xFF);  
+  }
+
+  return 0;
+}
+
 static struct {
   const char *name;
   const char *description;
   int (*handler) (char *);
-} cmd_table [] = {
+} 
+cmd_table [] = {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
+  {"si", "Single step, please enter in 'si N' format, N is the step conut.",cmd_si},
+  { "info", "Print the rigester, please enter in 'info r' or 'info w'.",cmd_info},
+  { "x", "Scan the memory, enter in 'x N EXPR' format,N is the continue bytes count,risv32 only=1/2/4, EXPR is an expression, now can be a adress.",cmd_x},
 
   /* TODO: Add more commands */
 
@@ -102,11 +162,14 @@ void sdb_mainloop() {
     return;
   }
 
+//NUO: read cmd
   for (char *str; (str = rl_gets()) != NULL; ) {
     char *str_end = str + strlen(str);
 
     /* extract the first token as the command */
+    /*NUO: space split*/
     char *cmd = strtok(str, " ");
+    // /*NUO*/char *cmd = strtok(str, "enter in the command ");
     if (cmd == NULL) { continue; }
 
     /* treat the remaining string as the arguments,
@@ -125,7 +188,7 @@ void sdb_mainloop() {
     int i;
     for (i = 0; i < NR_CMD; i ++) {
       if (strcmp(cmd, cmd_table[i].name) == 0) {
-        if (cmd_table[i].handler(args) < 0) { return; }
+        if (cmd_table[i].handler(args) < 0) { printf("NUO POINTS");return; }
         break;
       }
     }
@@ -137,7 +200,7 @@ void sdb_mainloop() {
 void init_sdb() {
   /* Compile the regular expressions. */
   init_regex();
-
+  
   /* Initialize the watchpoint pool. */
   init_wp_pool();
 }

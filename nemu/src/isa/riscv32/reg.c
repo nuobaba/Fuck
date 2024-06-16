@@ -15,6 +15,23 @@
 
 #include <isa.h>
 #include "local-include/reg.h"
+#include "include/isa-def.h"
+
+#if defined(CONFIG_RV64)
+iscv64_CPU_state My_Reg;
+riscv64_ISADecodeInfo Reg_Val;
+#else
+riscv32_CPU_state My_Reg;
+riscv32_ISADecodeInfo Reg_Val;
+#endif
+
+#if defined(CONFIG_RVE)
+int REG_CNT = 16;
+#else
+int REG_CNT = 32;
+#endif
+
+// extern MUXDEF(CONFIG_RV64, riscv64_CPU_state, riscv32_CPU_state) myreg;
 
 const char *regs[] = {
   "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
@@ -24,8 +41,21 @@ const char *regs[] = {
 };
 
 void isa_reg_display() {
-}
+
+  for (int i = 0;i<REG_CNT;i++)
+  {
+    printf("%s: 0x%08u\n", regs[i], My_Reg.gpr[i]);
+  }
+     // 打印程序计数器 pc 的值
+    printf("pc: 0x%08u\n", My_Reg.pc);
+  }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
   return 0;
 }
+
+
+// typedef struct {
+//   word_t gpr[MUXDEF(CONFIG_RVE, 16, 32)];
+//   vaddr_t pc;
+// } MUXDEF(CONFIG_RV64, riscv64_CPU_state, riscv32_CPU_state);
