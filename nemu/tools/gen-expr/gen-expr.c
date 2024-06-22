@@ -26,25 +26,115 @@ static char code_buf[65536 + 128] = {}; // a little larger than `buf`
 static char *code_format =
 "#include <stdio.h>\n"
 "int main() { "
-"  unsigned result = %s; "
-"  printf(\"%%u\", result); "
+// "  unsigned result = %s; "
+"  int result = %s; "
+// "  printf(\"%%u\", result); "
+"  printf(\"%%d\", result); "
 "  return 0; "
 "}";
 
-static void gen_rand_expr() {
-  buf[0] = '\0';
+static int choose(int n)
+{
+  int kkk = 0;
+  kkk = rand() % n;
+  // printf("kkk is %d\n",kkk);
+
+  return kkk;
+}
+
+static void gen_num()
+{
+  int num = rand() % 100;
+  char *num_str;
+// char num_str[12];
+  int num_len = snprintf(NULL, 0, "%d", num);
+  num_str = (char*)malloc(num_len + 1); 
+
+  sprintf(num_str,"%d",num);
+  strcat(buf,num_str);
+
+  free(num_str);
+}
+
+static void gen(char operator)
+{
+  int len = strlen(buf);
+  buf[len] = operator;
+  buf[len + 1] = '\0';
+}
+
+static void gen_rand_op()
+{
+  switch(choose(4))
+  {
+    case 0:
+    {
+      gen('+');
+      break;
+    }
+      case 1:
+    {
+      gen('-');
+      break;
+    }
+      case 2:
+    {
+      gen('*');
+      break;
+    }
+      case 3:
+    {
+      gen('/');
+      break;
+    }
+  }
+
+}
+
+
+static void gen_rand_expr(int depth) {
+    // buf[0] = '\0';
+    if(depth > 10)
+    {
+      gen_num();
+      return;
+    }
+    switch (choose(3)) {
+    case 0: 
+    
+      gen_num();
+      break;
+    
+    case 1:
+    
+      gen('('); 
+      gen_rand_expr(depth); 
+      gen(')'); 
+      break;
+    
+    default: 
+    
+      gen_rand_expr(depth+1); 
+      gen_rand_op(); 
+      gen_rand_expr(depth+1); 
+      break;
+    
+  }
 }
 
 int main(int argc, char *argv[]) {
   int seed = time(0);
+  int main_depth = 3;
   srand(seed);
   int loop = 1;
+ 
   if (argc > 1) {
     sscanf(argv[1], "%d", &loop);
   }
   int i;
   for (i = 0; i < loop; i ++) {
-    gen_rand_expr();
+    buf[0] = '\0';
+    gen_rand_expr(main_depth);
 
     sprintf(code_buf, code_format, buf);
 

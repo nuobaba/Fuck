@@ -90,7 +90,7 @@ static int cmd_info(char *args)
     printf("Do nothing.");
     TODO(); 
   }
-  
+  free(wr_sel);
   return 0;
 }
 
@@ -109,6 +109,86 @@ static int cmd_x(char *args)
 
   return 0;
 }
+static int cmd_cal(char *args)
+{
+  char *EXPR;
+  bool *suc_flag;
+  unsigned int result = 0;
+
+  EXPR = (char*)malloc(sizeof(char));
+  suc_flag = (bool*)malloc(sizeof(bool));
+  // EXPR_RAND =
+
+  sscanf(args,"%s",EXPR);
+
+  // Log("EXPR IS %s\n",EXPR);
+
+  result = expr(EXPR,suc_flag);
+  Log("calculate result is %d",result);
+  printf("calculate result is %d",result);
+
+  free(EXPR);
+  free(suc_flag);
+  return 0;
+}
+
+
+static int cmd_v(char *args)
+{
+  char *EXPR;
+  bool *suc_flag;
+  // unsigned int result = 0;
+  char filename[30] = "tools/gen-expr/expr";
+
+  EXPR = (char*)malloc(sizeof(char));
+  suc_flag = (bool*)malloc(sizeof(bool));
+
+  FILE *file = fopen(filename,"r");
+  if(file == NULL)
+  {
+    perror("Fail to open file");
+    // return EXIT_FAILURE;
+    return 0;
+  }
+
+
+  char line[1024];
+    while (fgets(line, sizeof(line), file)) {
+        int file_result;
+        char expression[1024];
+
+        // Read the result and expression from the file line
+        if (sscanf(line, "%d %[^\n]", &file_result, expression) != 2) {
+            fprintf(stderr, "Failed to parse line: %s", line);
+            continue;
+        }
+
+        bool success;
+        int computed_result = expr(expression, &success);
+
+        if (!success) {
+            fprintf(stderr, "Failed to evaluate expression: %s\n", expression);
+            continue;
+        }
+
+        if (computed_result != file_result) {
+            printf("Mismatch: computed_result = %d, file_result = %d, expression = %s\n",
+                   computed_result, file_result, expression);
+        } else {
+            printf("Match: result = %d, expression = %s\n", file_result, expression);
+        }
+    }
+
+    fclose(file);
+  
+
+  free(EXPR);
+  free(suc_flag);
+  return 0;
+}
+
+
+
 
 static struct {
   const char *name;
@@ -122,7 +202,8 @@ cmd_table [] = {
   {"si", "Single step, please enter in 'si N' format, N is the step conut.",cmd_si},
   { "info", "Print the rigester, please enter in 'info r' or 'info w'.",cmd_info},
   { "x", "Scan the memory, enter in 'x N EXPR' format,N is the continue bytes count,risv32 only=1/2/4, EXPR is an expression, now can be a adress.",cmd_x},
-
+  { "cal","expression calculate.",cmd_cal},
+  { "v" ,"check the value",cmd_v}, 
   /* TODO: Add more commands */
 
 };
