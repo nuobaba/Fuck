@@ -51,8 +51,26 @@ void isa_reg_display() {
   }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
-  return 0;
-}
+    for (int i = 0;i<REG_CNT;i++)
+    {
+    if(strcmp(s,regs[i]) == 0)
+    {
+      *success = true;
+      
+      return My_Reg.gpr[i];
+    }
+
+    }   
+    
+      *success = false;
+      printf("no that register name :%s \n",s);
+
+      return 0;
+    
+
+  }
+  
+
 
 
 // typedef struct {

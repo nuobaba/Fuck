@@ -20,7 +20,8 @@
 #include "sdb.h"
 #include <memory/paddr.h>
 #include "common.h"
-// #include "vaddr.h"
+#include "memory/vaddr.h"
+#include "watchpoint.h"
 
 static int is_batch_mode = false;
 
@@ -87,9 +88,25 @@ static int cmd_info(char *args)
   }
   else if(strcmp(wr_sel,"w") == 0)
   {
-    printf("Do nothing.");
-    TODO(); 
+    // printf("Do nothing.");
+    // TODO(); 
+    print_watchpoints();
   }
+  else if(strcmp(wr_sel,"d") == 0)
+  {
+    char *arg = strtok(NULL, " ");
+      if (arg != NULL) {
+        int no = atoi(arg);
+        delete_watchpoint(no);
+      }
+  }
+  else if (strcmp(wr_sel, "watch") == 0) {
+      char *expr = strtok(NULL, " ");
+      if (expr != NULL) {
+        add_watchpoint(expr);
+      }
+    }
+
   free(wr_sel);
   return 0;
 }
@@ -135,13 +152,9 @@ static int cmd_cal(char *args)
 
 static int cmd_v(char *args)
 {
-  char *EXPR;
-  bool *suc_flag;
-  // unsigned int result = 0;
   char filename[30] = "tools/gen-expr/expr";
 
-  EXPR = (char*)malloc(sizeof(char));
-  suc_flag = (bool*)malloc(sizeof(bool));
+  // init_tokens();
 
   FILE *file = fopen(filename,"r");
   if(file == NULL)
@@ -180,10 +193,7 @@ static int cmd_v(char *args)
     }
 
     fclose(file);
-  
 
-  free(EXPR);
-  free(suc_flag);
   return 0;
 }
 
@@ -284,4 +294,6 @@ void init_sdb() {
   
   /* Initialize the watchpoint pool. */
   init_wp_pool();
+
+  // init_tokens();
 }

@@ -20,13 +20,19 @@
  */
 #include <regex.h>
 
+#define INITIAL_TOKEN_SIZE 32
+#define DEREF 265
+
 
 
 static bool check_parentheses(int p, int q);
 static int find_main_operator(int p, int q);
 static uint32_t eval(int p, int q, bool *success);
 extern void init_regex();
-int flag = 0 ;
+extern void init_tokens();
+extern void free_tokens();
+// extern uint32_t vaddr_read(uint32_t addr, int len);
+extern word_t expr(char *e, bool *success);
 
 enum {
   TK_NOTYPE = 256, 
@@ -37,7 +43,12 @@ enum {
   TK_MUL=261,
   TK_DIV=262,
   TK_LPAREN=263,//(
-  TK_RPAREN=264//)
+  TK_RPAREN=264,//)
+  TK_AND = 265,
+  TK_NEQ = 266,
+  TK_POINTER = 267,
+  TK_HEX = 268,
+  TK_REG_NAME = 269
   /* TODO: Add more token types */
 
 };
@@ -58,8 +69,12 @@ static struct rule {
   {"\\*",TK_MUL},
   {"\\/",TK_DIV},
   {"\\(",TK_LPAREN}, 
-  {"\\)",TK_RPAREN}
-
+  {"\\)",TK_RPAREN},
+  {"\\&",TK_AND},
+  {"\\!=",TK_NEQ},
+  {"\\*",TK_POINTER},
+  {"\\0X",TK_HEX},
+  {"\\$",TK_REG_NAME}
 
 };
 
@@ -90,54 +105,40 @@ typedef struct token {
   char str[32];
 } Token;
 
-static Token tokens[32] __attribute__((used)) = {};
-static int nr_token __attribute__((used))  = 0;
+// static Token tokens[32] __attribute__((used)) = {};
+// static int nr_token __attribute__((used))  = 0;
 
-Token *tokens = NULL; 
-int nr_token = 0;     
-int max_tokens = 32;
+static Token *tokens = NULL;
+static int nr_token = 0;
+static int max_tokens = INITIAL_TOKEN_SIZE;
 
-void init_tokens() {
-    tokens = (Token *)malloc(max_tokens * sizeof(Token));
-    if (tokens == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(1);
-    }
-}
 
-void free_tokens() {
-    if (tokens != NULL) {
-        free(tokens);
-    }
-}
+// void init_tokens() {
+//   tokens = (Token *)malloc(max_tokens * sizeof(Token));
+//   if (tokens == NULL) {
+//     fprintf(stderr, "Memory allocation failed\n");
+//     exit(1);
+//   }
+// }
+
 
 void ensure_token_capacity() {
-    if (nr_token >= max_tokens) {
-        max_tokens *= 2; // 将数组大小翻倍
-        tokens = (Token *)realloc(tokens, max_tokens * sizeof(Token));
-        if (tokens == NULL) {
-            fprintf(stderr, "Memory allocation failed\n");
-            exit(1);
-        }
+  if (nr_token >= max_tokens) {
+    max_tokens *= 2; // 将数组大小翻倍
+    tokens = (Token *)realloc(tokens, max_tokens * sizeof(Token));
+    if (tokens == NULL) {
+      fprintf(stderr, "Memory allocation failed\n");
+      exit(1);
     }
-}
-
-void add_token(int type, const char *str) {
-    ensure_token_capacity();
-    tokens[nr_token].type = type;
-    strncpy(tokens[nr_token].str, str, sizeof(tokens[nr_token].str) - 1);
-    tokens[nr_token].str[sizeof(tokens[nr_token].str) - 1] = '\0'; // 确保字符串以空字符结尾
-    nr_token++;
+  }
 }
 
 
-
-
-
-
-
-
-
+// void free_tokens() {
+//   if (tokens != NULL) {
+//     free(tokens);
+//   }
+// }
 
 static bool make_token(char *e) {
   int position = 0;
@@ -145,19 +146,10 @@ static bool make_token(char *e) {
   regmatch_t pmatch;
 
   nr_token = 0;
-  flag++;
-  // Log("NR_REGEX val is %d\n, flag = %d ",NR_REGEX,flag);  
-  // Log("i val is %d\n ",i);  
-  //  Log("e is %s\n",e);
-  //  Log("E[position] is %c\n",e[position]);
-  
+
   while (e[position] != '\0') {
     /* Try all rules one by one. */
     for (i = 0; i < NR_REGEX; i ++) {
-      // Log("enter in for,i = %d\n",i);
-      // int reghhhh = regexec(&re[i], e + position, 1, &pmatch, 0); 
-      // Log("compare seq = %d\n",reghhhh);
-
       if ((regexec(&re[i], e + position, 1, &pmatch, 0) == 0) && (pmatch.rm_so == 0)) {
         char *substr_start = e + position;
         int substr_len = pmatch.rm_eo;
@@ -179,8 +171,8 @@ static bool make_token(char *e) {
       // }7
         if (rules[i].token_type != TK_NOTYPE) 
         {
-          // flag++;
-          // Log("enter in TK_NOTYPE,flag is %d",flag);
+    
+          ensure_token_capacity();
           tokens[nr_token].type = rules[i].token_type;
           strncpy(tokens[nr_token].str,       substr_start, substr_len);
           tokens[nr_token].str[substr_len] = '\0';
@@ -192,8 +184,7 @@ static bool make_token(char *e) {
     }
 
     if (i == NR_REGEX) {
-      flag++;
-      // Log("enter in NR_REGEX,flag is %d",flag);
+
       printf("no match at position %d\n%s\n%*.s^\n", position, e, position, "");
       return false;
     }
@@ -204,25 +195,60 @@ static bool make_token(char *e) {
 
 
 word_t expr(char *e, bool *success) {
-  // Log("enter expr func");
-  // Log("make_token(e) = %d\n",make_token(e));
+
+  // if (!make_token(e)) {
+  //   *success = false;
+  //   return 0;
+  // }
+
+  // /* TODO: Insert codes to evaluate the expression. */
+  // // TODO();
+  // uint32_t result   = eval(0,nr_token-1,success);
+
+  // return result;
+if (tokens == NULL) {
+    tokens = (Token *)malloc(max_tokens * sizeof(Token));
+    if (tokens == NULL) {
+      fprintf(stderr, "Memory allocation failed\n");
+      exit(1);
+    }
+  }
+
+  nr_token = 0;
+
   if (!make_token(e)) {
-    flag++;
-    // Log("enter in fail banch");
-    // Log("e is %s\n,flag is %d",e,flag);
     *success = false;
     return 0;
   }
 
-  /* TODO: Insert codes to evaluate the expression. */
-  // TODO();
-  return eval(0,nr_token-1,success);
+  for (int i = 0; i < nr_token; i++) 
+  {
+    if ((tokens[i].type == '*' )&& ((i == 0) || ((tokens[i - 1].type != TK_NUM )&& (tokens[i - 1].type != TK_RPAREN))) )
+    {
+      tokens[i].type = DEREF;
+    }
+    else if (tokens[i].type == TK_REG_NAME) 
+    {
+      bool reg_success;
+      uint32_t reg_val = isa_reg_str2val(tokens[i].str, &reg_success);
+      if (!reg_success) 
+      {
+        *success = false;
+        return 0;
+      }
+      tokens[i].type = TK_NUM;
+      snprintf(tokens[i].str, sizeof(tokens[i].str), "%u", reg_val);
+    }
+  }
+  uint32_t fuck = eval(0, nr_token - 1, success);
+
+  return fuck;
+
   // return 0;
 }
 
 static bool check_parentheses(int p, int q)
 {
-      flag++;
   // Log("cheack_parentheses,flag is %d\n",flag);
   if ((tokens[p].type ==TK_LPAREN)&&(tokens[q].type == TK_RPAREN))
   {
@@ -250,11 +276,7 @@ static bool check_parentheses(int p, int q)
 }
 
 uint32_t eval(int p, int q, bool *success)
-{   flag++;
-    // Log("enter eval func\n");
-    // printf("success flag is %s\n",success);
-    // printf("enter eval func\n");
-    // printf("p is %d,q is %d\n",p,q); 
+{   
   if(p > q)
   {
     *success = false;
@@ -264,8 +286,22 @@ uint32_t eval(int p, int q, bool *success)
   else if(p == q)
   {
     uint32_t val;
-    sscanf(tokens[p].str,"%u",&val);
-    return val;
+    // sscanf(tokens[p].str,"%u",&val);
+    // return val;
+      if (tokens[p].type == TK_NUM) {
+      sscanf(tokens[p].str, "%u", &val);
+      return val;
+    } else if (tokens[p].type == TK_HEX) {
+      sscanf(tokens[p].str, "%x", &val);
+      return val;
+    } else if (tokens[p].type == TK_REG_NAME) {
+      return isa_reg_str2val(tokens[p].str, success);
+    } else {
+      *success = false;
+      return 0;
+    }
+
+
   }
   else if(check_parentheses(p,q)==true)
   {
@@ -274,9 +310,20 @@ uint32_t eval(int p, int q, bool *success)
   else
   {
     int op = find_main_operator(p,q); 
+
+  if (tokens[op].type == DEREF) {
+      uint32_t addr = eval(op + 1, q, success);
+      if (!*success) return 0;
+      // Simulate dereferencing an address (should be replaced with actual memory access)
+    
+      // return vaddr_read(addr,4);
+      return isa_reg_str2val((const char*)&addr, success);
+    }
+
+
     int val1 = eval(p, op - 1,success);
     int val2 = eval(op + 1, q,success);
-  // printf("val1 = %d,val2 = %d\n",val1,val2);
+
     // if(*success == false) 
     // {
     //   printf("enter fail branch kkkkkkkkkkkkkkkkkkkkkk");
@@ -302,6 +349,12 @@ uint32_t eval(int p, int q, bool *success)
           }
         return val1 / val2;
         }
+      case TK_EQ:
+        return val1 == val2;
+      case TK_NEQ:
+        return val1 != val2;
+      case TK_AND:
+        return val1 && val2;
       default: 
       {
       // assert(0);
@@ -319,7 +372,6 @@ int find_main_operator(int p, int q) {
   int main_op = -1;
   int parentheses_count = 0;
      
-  flag++;
   // Log("enter find main operator func,\n");
   // printf("enter find main operator func,\n");
   // printf("p is %d,q is %d\n",p,q);
@@ -354,13 +406,28 @@ int find_main_operator(int p, int q) {
           priority = 2;
           break;
         }
+        case TK_EQ:
+        {
+          priority = 0;
+          break;
+        }
+        case TK_NEQ:
+        {
+          priority = 0;
+          break;
+        }
+        case TK_AND:
+        {
+          priority = -1;
+          break;
+        }
       }
       if ((priority > 0) && (priority <= min_priority)) {
         min_priority = priority;
         main_op = i;
        
       } 
-      // printf("min_priority = %d,main_op = %d\n",min_priority,main_op);
+
     }
   }
 
